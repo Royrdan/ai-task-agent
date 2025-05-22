@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Claude Task Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1>Tasks</h1>
+    </div>
+    <div class="col-md-6 text-end">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadCsvModal">
+            Upload CSV
+        </button>
+    </div>
+</div>
+
+{% if not config.github_repo %}
+<div class="alert alert-warning" role="alert">
+    <strong>GitHub repository not configured!</strong> Please <a href="{{ url_for('config') }}">configure</a> a GitHub repository before starting tasks.
+</div>
+{% endif %}
+
+{% if tasks %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Ticket</th>
+                <th>Task</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr class="{% if task.priority|lower == 'high' %}table-danger{% elif task.priority|lower == 'medium' %}table-warning{% elif task.priority|lower == 'low' %}table-info{% endif %}">
+                <td>
+                    {% if task.link %}
+                    <a href="{{ task.link }}" target="_blank">{{ task.ticket }}</a>
+                    {% else %}
+                    {{ task.ticket }}
+                    {% endif %}
+                </td>
+                <td>{{ task.task }}</td>
+                <td>{{ task.priority }}</td>
+                <td>
+                    {% if task.status == 'new' %}
+                    <span class="badge bg-secondary">New</span>
+                    {% elif task.status == 'started' %}
+                    <span class="badge bg-primary">Started</span>
+                    {% elif task.status == 'actioned' %}
+                    <span class="badge bg-info">Actioned</span>
+                    {% elif task.status == 'completed' %}
+                    <span class="badge bg-success">Completed</span>
+                    {% endif %}
+                </td>
+                <td>{{ task.created_at.split('T')[0] }}</td>
+                <td>
+                    <a href="{{ url_for('task_detail', task_id=task.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteTaskModal{{ task.id }}">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+            
+            <!-- Delete Task Modal -->
+            <div class="modal fade" id="deleteTaskModal{{ task.id }}" tabindex="-1" aria-labelledby="deleteTaskModalLabel{{ task.id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="deleteTaskModalLabel{{ task.id }}">Confirm Delete</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            Are you sure you want to delete the task "{{ task.task }}" ({{ task.ticket }})?
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <form action="{{ url_for('delete_task', task_id=task.id) }}" method="post">
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+    No tasks found. Upload a CSV file to add tasks.
+</div>
+{% endif %}
+
+<!-- Upload CSV Modal -->
+<div class="modal fade" id="uploadCsvModal" tabindex="-1" aria-labelledby="uploadCsvModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadCsvModalLabel">Upload CSV</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('upload_csv') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="csvFile" class="form-label">CSV File</label>
+                        <input class="form-control" type="file" id="csvFile" name="csv_file" accept=".csv" required>
+                        <div class="form-text">
+                            The CSV file should have columns for "Ticket", "Task", "Link", and optionally "Priority".
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

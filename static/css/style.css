@@ -1,0 +1,65 @@
+/* Custom styles for Claude Task Manager */
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+/* Task status badges */
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.8em;
+}
+
+/* Git diff styling */
+.git-diff pre {
+    margin-bottom: 0;
+}
+
+/* Claude output styling */
+.claude-output {
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+/* Card styling */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Button spacing */
+.btn {
+    margin-right: 0.25rem;
+}
+
+/* Table styling */
+.table th {
+    border-top: none;
+}
+
+/* Form styling */
+textarea.form-control {
+    font-family: monospace;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .claude-output, .git-diff {
+        max-height: 300px;
+    }
+}

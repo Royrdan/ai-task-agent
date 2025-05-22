@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Task Details - Claude Task Manager{% endblock %}
+
+{% block head %}
+<style>
+    .git-diff {
+        max-height: 500px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    .claude-output {
+        max-height: 500px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+        white-space: pre-wrap;
+    }
+    .status-badge {
+        font-size: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <h1>Task Details</h1>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Tasks</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">{{ task.ticket }} - {{ task.task }}</h3>
+                <span class="status-badge badge {% if task.status == 'new' %}bg-secondary{% elif task.status == 'started' %}bg-primary{% elif task.status == 'actioned' %}bg-info{% elif task.status == 'completed' %}bg-success{% endif %}">
+                    {{ task.status|capitalize }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <p><strong>Ticket:</strong> 
+                            {% if task.link %}
+                            <a href="{{ task.link }}" target="_blank">{{ task.ticket }}</a>
+                            {% else %}
+                            {{ task.ticket }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>Priority:</strong> 
+                            <span class="badge {% if task.priority|lower == 'high' %}bg-danger{% elif task.priority|lower == 'medium' %}bg-warning{% elif task.priority|lower == 'low' %}bg-info{% else %}bg-secondary{% endif %}">
+                                {{ task.priority }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>Created:</strong> {{ task.created_at.split('T')[0] }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>Prompt</h4>
+                            </div>
+                            <div class="card-body">
+                                {% if task.status == 'new' %}
+                                <form action="{{ url_for('update_prompt', task_id=task.id) }}" method="post">
+                                    <div class="mb-3">
+                                        <textarea class="form-control" name="prompt" rows="5" placeholder="Enter prompt for Claude...">{{ task.prompt }}</textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Prompt</button>
+                                </form>
+                                {% else %}
+                                <div class="p-3 bg-light rounded">
+                                    <pre>{{ task.prompt }}</pre>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-12 d-flex justify-content-between">
+                        {% if task.status == 'new' and task.prompt %}
+                        <form action="{{ url_for('start_task', task_id=task.id) }}" method="post">
+                            <button type="submit" class="btn btn-primary">START</button>
+                        </form>
+                        {% elif task.status == 'started' %}
+                        <form action="{{ url_for('action_task', task_id=task.id) }}" method="post">
+                            <button type="submit" class="btn btn-info">ACTION</button>
+                        </form>
+                        {% elif task.status == 'actioned' %}
+                        <form action="{{ url_for('push_changes', task_id=task.id) }}" method="post">
+                            <button type="submit" class="btn btn-success">PUSH CHANGES</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if task.claude_output %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>Claude Output</h4>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="claude-output">{{ task.claude_output }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if task.status == 'actioned' %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>Follow-up Prompt</h4>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('followup_prompt', task_id=task.id) }}" method="post">
+                                    <div class="mb-3">
+                                        <textarea class="form-control" name="followup_prompt" rows="3" placeholder="Enter follow-up prompt for Claude..."></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Send Follow-up</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if task.git_diff %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>Git Diff</h4>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="git-diff">
+                                    <pre><code class="language-diff">{{ task.git_diff }}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
