@@ -148,9 +148,27 @@ def config():
 
 def get_case_insensitive_column(row, column_name):
     """Get a column value regardless of case"""
+    # First try direct access (case sensitive)
+    if column_name in row:
+        return row[column_name]
+    
+    # Then try case-insensitive match
     for key in row.keys():
         if key.lower() == column_name.lower():
             return row[key]
+    
+    # If still not found, try with common variations
+    variations = [
+        column_name.lower(),
+        column_name.upper(),
+        column_name.capitalize(),
+        column_name.title()
+    ]
+    
+    for var in variations:
+        if var in row:
+            return row[var]
+    
     return None
 
 @app.route('/upload_csv', methods=['POST'])
@@ -174,23 +192,37 @@ def upload_csv():
         tasks = load_tasks()
         existing_tickets = {task['ticket'] for task in tasks}
         new_tasks_count = 0
+        error_rows = []
         
-        with open(filepath, 'r') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                # Get values regardless of case
-                ticket = get_case_insensitive_column(row, 'ticket')
-                task_name = get_case_insensitive_column(row, 'task')
-                link = get_case_insensitive_column(row, 'link')
-                priority = get_case_insensitive_column(row, 'priority')
+        try:
+            with open(filepath, 'r', encoding='utf-8-sig') as csvfile:
+                # Try to read the CSV file
+                reader = csv.DictReader(csvfile)
                 
-                # Set default priority if not provided
-                if not priority:
-                    priority = "Medium"
-                
-                if ticket and task_name:
+                # Process each row in the CSV
+                for row in reader:
+                    # Get values regardless of case
+                    ticket = get_case_insensitive_column(row, 'ticket')
+                    task_name = get_case_insensitive_column(row, 'task')
+                    link = get_case_insensitive_column(row, 'link')
+                    priority = get_case_insensitive_column(row, 'priority')
+                    
+                    # Set default priority if not provided
+                    if not priority:
+                        priority = "Medium"
+                    
+                    # Check if we have the required fields
+                    if not ticket:
+                        error_rows.append(f"Missing ticket in row: {row}")
+                        continue
+                        
+                    if not task_name:
+                        error_rows.append(f"Missing task name in row: {row}")
+                        continue
+                    
+                    # Process the row
                     ticket = ticket.strip()
-                    if ticket and ticket not in existing_tickets:
+                    if ticket not in existing_tickets:
                         task_id = str(uuid.uuid4())
                         tasks.append({
                             'id': task_id,
@@ -206,6 +238,18 @@ def upload_csv():
                         })
                         existing_tickets.add(ticket)
                         new_tasks_count += 1
+                    else:
+                        print(f"Skipping duplicate ticket: {ticket}")
+        except Exception as e:
+            flash(f'Error processing CSV: {str(e)}', 'error')
+            print(f"CSV processing error: {str(e)}")
+            # Clean up the uploaded file
+            os.remove(filepath)
+            return redirect(url_for('index'))
+        
+        # Log any errors
+        if error_rows:
+            print(f"Errors in CSV rows: {error_rows}")
         
         save_tasks(tasks)
         flash(f'Added {new_tasks_count} new tasks from CSV', 'success')
