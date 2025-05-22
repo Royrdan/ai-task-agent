@@ -46,7 +46,7 @@
             </div>
             <div class="card-body">
                 <div class="row mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p><strong>Ticket:</strong> 
                             {% if task.link %}
                             <a href="{{ task.link }}" target="_blank">{{ task.ticket }}</a>
@@ -55,14 +55,17 @@
                             {% endif %}
                         </p>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <p><strong>Assignee:</strong> {{ task.assignee if task.assignee else '-' }}</p>
+                    </div>
+                    <div class="col-md-3">
                         <p><strong>Priority:</strong> 
                             <span class="badge {% if task.priority|lower == 'high' %}bg-danger{% elif task.priority|lower == 'medium' %}bg-warning{% elif task.priority|lower == 'low' %}bg-info{% else %}bg-secondary{% endif %}">
                                 {{ task.priority }}
                             </span>
                         </p>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p><strong>Created:</strong> {{ task.created_at.split('T')[0] }}</p>
                     </div>
                 </div>

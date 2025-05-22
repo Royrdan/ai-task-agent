@@ -139,6 +139,12 @@ def config():
     if request.method == 'POST':
         config = load_config()
         config['github_repo'] = request.form['github_repo']
+        
+        # Handle assignees
+        assignees = request.form.getlist('assignees[]')
+        # Filter out empty assignee names
+        config['assignees'] = [assignee.strip() for assignee in assignees if assignee.strip()]
+        
         save_config(config)
         flash('Configuration updated successfully', 'success')
         return redirect(url_for('index'))
@@ -188,10 +194,15 @@ def upload_csv():
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
         
+        # Load configuration to get assignees
+        config = load_config()
+        assignees = config.get('assignees', [])
+        
         # Process CSV file
         tasks = load_tasks()
         existing_tickets = {task['ticket'] for task in tasks}
         new_tasks_count = 0
+        skipped_tasks_count = 0
         error_rows = []
         
         try:
@@ -206,6 +217,7 @@ def upload_csv():
                     task_name = get_case_insensitive_column(row, 'task')
                     link = get_case_insensitive_column(row, 'link')
                     priority = get_case_insensitive_column(row, 'priority')
+                    assignee = get_case_insensitive_column(row, 'assign')
                     
                     # Set default priority if not provided
                     if not priority:
@@ -220,6 +232,12 @@ def upload_csv():
                         error_rows.append(f"Missing task name in row: {row}")
                         continue
                     
+                    # Skip tasks that don't have an assignee in the configuration
+                    if assignees and (not assignee or assignee.strip() not in assignees):
+                        print(f"Skipping task {ticket} - assignee '{assignee}' not in configured assignees: {assignees}")
+                        skipped_tasks_count += 1
+                        continue
+                    
                     # Process the row
                     ticket = ticket.strip()
                     if ticket not in existing_tickets:
@@ -230,6 +248,7 @@ def upload_csv():
                             'task': task_name.strip(),
                             'link': link.strip() if link else '',
                             'priority': priority.strip(),
+                            'assignee': assignee.strip() if assignee else '',
                             'prompt': '',
                             'status': 'new',  # new, started, actioned, completed
                             'created_at': datetime.now().isoformat(),
@@ -252,7 +271,18 @@ def upload_csv():
             print(f"Errors in CSV rows: {error_rows}")
         
         save_tasks(tasks)
-        flash(f'Added {new_tasks_count} new tasks from CSV', 'success')
+        
+        # Show appropriate message based on results
+        if new_tasks_count > 0:
+            if skipped_tasks_count > 0:
+                flash(f'Added {new_tasks_count} new tasks from CSV. Skipped {skipped_tasks_count} tasks due to assignee filtering.', 'success')
+            else:
+                flash(f'Added {new_tasks_count} new tasks from CSV', 'success')
+        else:
+            if skipped_tasks_count > 0:
+                flash(f'No tasks added. Skipped {skipped_tasks_count} tasks due to assignee filtering.', 'warning')
+            else:
+                flash('No new tasks found in CSV', 'warning')
         
         # Clean up the uploaded file
         os.remove(filepath)
