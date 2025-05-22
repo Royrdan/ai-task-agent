@@ -131,8 +131,34 @@ If you prefer to set up the application manually:
    chmod +x run.py
    ```
 
-## Usage (Linux)
+## Usage
 
+### Quick Start
+
+The easiest way to start the application is to use the provided start scripts:
+
+#### On Linux/macOS:
+```
+chmod +x start.sh
+./start.sh
+```
+
+#### On Windows:
+```
+start.bat
+```
+
+These scripts will:
+- Create a virtual environment if it doesn't exist
+- Install all required dependencies
+- Set up necessary directories and files
+- Start the application
+
+### Manual Start
+
+If you prefer to start the application manually:
+
+#### On Linux/macOS:
 1. Make the run script executable:
    ```
    chmod +x run.py
@@ -151,14 +177,26 @@ If you prefer to set up the application manually:
    flask run --host=0.0.0.0 --port=9000
    ```
 
+#### On Windows:
+1. Start the application using one of these methods:
+   ```
+   # Method 1: Using Python directly
+   python run.py
+   
+   # Method 2: Using Flask directly
+   set FLASK_APP=app.py
+   flask run --host=0.0.0.0 --port=9000
+   ```
+
 2. Open your browser and navigate to `http://localhost:9000`
 
 3. Configure the GitHub repository URL in the Configuration page
 
 4. Upload a CSV file with the following columns:
-   - `ticket`: Ticket identifier (e.g., "FL-123")
-   - `task`: Description of the task
-   - `link`: URL to the ticket (optional)
+   - `Ticket`: Ticket identifier (e.g., "FL-123")
+   - `Task`: Description of the task
+   - `Link`: URL to the ticket (optional)
+   - `Priority`: Task priority (High, Medium, Low)
 
 5. For each task:
    - Add a prompt for Claude
@@ -172,10 +210,10 @@ If you prefer to set up the application manually:
 ## CSV Format Example
 
 ```csv
-ticket,task,link
-FL-123,Fix transaction handling bug,https://jira.example.com/browse/FL-123
-FL-124,Add pagination to user list,https://jira.example.com/browse/FL-124
-FL-125,Improve error handling in API,https://jira.example.com/browse/FL-125
+Ticket,Task,Link,Priority
+FL-123,Fix transaction handling bug,https://jira.example.com/browse/FL-123,High
+FL-124,Add pagination to user list,https://jira.example.com/browse/FL-124,Medium
+FL-125,Improve error handling in API,https://jira.example.com/browse/FL-125,Low
 ```
 
 ### Generating Test Data
@@ -209,6 +247,8 @@ claude-task-manager/
 ├── config.json             # Configuration storage
 ├── requirements.txt        # Python dependencies
 ├── run.py                  # Script to run the application
+├── start.sh                # Start script for Linux/macOS
+├── start.bat               # Start script for Windows
 ├── setup.sh                # Setup script for Linux
 ├── generate_test_data.py   # Script to generate test data
 ├── update_claude_command.py # Script to update Claude CLI commands
