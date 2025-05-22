@@ -2,6 +2,19 @@
 
 {% block title %}Home - Claude Task Manager{% endblock %}
 
+{% block head %}
+<style>
+    .filter-row th {
+        padding: 8px 4px;
+    }
+    .filter-row select {
+        width: 100%;
+        padding: 4px;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-6">
@@ -22,16 +35,83 @@
 
 {% if tasks %}
 <div class="table-responsive">
-    <table class="table table-striped table-hover">
+    <table class="table table-striped table-hover" id="tasksTable">
         <thead>
             <tr>
                 <th>Ticket</th>
                 <th>Task</th>
                 <th>Assignee</th>
                 <th>Priority</th>
+                <th>State</th>
                 <th>Status</th>
                 <th>Created</th>
                 <th>Actions</th>
+            </tr>
+            <tr class="filter-row">
+                <th>
+                    <select class="column-filter" data-column="ticket">
+                        <option value="">All Tickets</option>
+                        {% set tickets = [] %}
+                        {% for task in tasks %}
+                            {% if task.ticket not in tickets %}
+                                {% set _ = tickets.append(task.ticket) %}
+                                <option value="{{ task.ticket }}">{{ task.ticket }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </th>
+                <th>
+                    <select class="column-filter" data-column="task">
+                        <option value="">All Tasks</option>
+                    </select>
+                </th>
+                <th>
+                    <select class="column-filter" data-column="assignee">
+                        <option value="">All Assignees</option>
+                        {% set assignees = [] %}
+                        {% for task in tasks %}
+                            {% if task.assignee and task.assignee not in assignees %}
+                                {% set _ = assignees.append(task.assignee) %}
+                                <option value="{{ task.assignee }}">{{ task.assignee }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </th>
+                <th>
+                    <select class="column-filter" data-column="priority">
+                        <option value="">All Priorities</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </th>
+                <th>
+                    <select class="column-filter" data-column="state">
+                        <option value="">All States</option>
+                        {% set states = [] %}
+                        {% for task in tasks %}
+                            {% if task.state and task.state not in states %}
+                                {% set _ = states.append(task.state) %}
+                                <option value="{{ task.state }}">{{ task.state }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </th>
+                <th>
+                    <select class="column-filter" data-column="status">
+                        <option value="">All Statuses</option>
+                        <option value="new">New</option>
+                        <option value="started">Started</option>
+                        <option value="actioned">Actioned</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </th>
+                <th>
+                    <select class="column-filter" data-column="created">
+                        <option value="">All Dates</option>
+                    </select>
+                </th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -47,6 +127,7 @@
                 <td>{{ task.task }}</td>
                 <td>{{ task.assignee if task.assignee else '-' }}</td>
                 <td>{{ task.priority }}</td>
+                <td>{{ task.state if task.state else '-' }}</td>
                 <td>
                     {% if task.status == 'new' %}
                     <span class="badge bg-secondary">New</span>
@@ -111,7 +192,7 @@
                         <label for="csvFile" class="form-label">CSV File</label>
                         <input class="form-control" type="file" id="csvFile" name="csv_file" accept=".csv" required>
                         <div class="form-text">
-                            The CSV file should have columns for "Ticket", "Task", "Link", "Assign", and optionally "Priority". 
+                            The CSV file should have columns for "Ticket", "Task", "Link", "Assign", "State", and optionally "Priority". 
                             Only tasks assigned to names configured in the <a href="{{ url_for('config') }}">configuration</a> will be imported.
                         </div>
                     </div>
@@ -121,4 +202,119 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get all filter dropdowns
+        const filters = document.querySelectorAll('.column-filter');
+        
+        // Add event listeners to each filter
+        filters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                applyFilters();
+            });
+        });
+        
+        // Function to apply all filters
+        function applyFilters() {
+            // Get all active filters
+            const activeFilters = {};
+            filters.forEach(filter => {
+                const column = filter.getAttribute('data-column');
+                const value = filter.value;
+                if (value) {
+                    activeFilters[column] = value;
+                }
+            });
+            
+            // Get all rows
+            const rows = document.querySelectorAll('#tasksTable tbody tr');
+            
+            // Loop through rows and check if they match all filters
+            rows.forEach(row => {
+                let showRow = true;
+                
+                // Check each active filter
+                for (const column in activeFilters) {
+                    const value = activeFilters[column];
+                    let cellValue;
+                    
+                    // Get the cell value based on the column
+                    switch (column) {
+                        case 'ticket':
+                            cellValue = row.cells[0].textContent.trim();
+                            break;
+                        case 'task':
+                            cellValue = row.cells[1].textContent.trim();
+                            break;
+                        case 'assignee':
+                            cellValue = row.cells[2].textContent.trim();
+                            break;
+                        case 'priority':
+                            cellValue = row.cells[3].textContent.trim();
+                            break;
+                        case 'state':
+                            cellValue = row.cells[4].textContent.trim();
+                            break;
+                        case 'status':
+                            // Extract status from the badge text
+                            const statusBadge = row.cells[5].querySelector('.badge');
+                            cellValue = statusBadge ? statusBadge.textContent.trim().toLowerCase() : '';
+                            break;
+                        case 'created':
+                            cellValue = row.cells[6].textContent.trim();
+                            break;
+                    }
+                    
+                    // If the cell value doesn't match the filter, hide the row
+                    if (cellValue !== value && !(column === 'status' && cellValue.includes(value.toLowerCase()))) {
+                        showRow = false;
+                        break;
+                    }
+                }
+                
+                // Show or hide the row
+                row.style.display = showRow ? '' : 'none';
+            });
+        }
+        
+        // Populate task filter with unique task names
+        const taskFilter = document.querySelector('.column-filter[data-column="task"]');
+        const taskNames = new Set();
+        document.querySelectorAll('#tasksTable tbody tr').forEach(row => {
+            const taskName = row.cells[1].textContent.trim();
+            if (taskName) {
+                taskNames.add(taskName);
+            }
+        });
+        
+        // Add options to task filter
+        taskNames.forEach(taskName => {
+            const option = document.createElement('option');
+            option.value = taskName;
+            option.textContent = taskName.length > 30 ? taskName.substring(0, 30) + '...' : taskName;
+            taskFilter.appendChild(option);
+        });
+        
+        // Populate created date filter with unique dates
+        const createdFilter = document.querySelector('.column-filter[data-column="created"]');
+        const dates = new Set();
+        document.querySelectorAll('#tasksTable tbody tr').forEach(row => {
+            const date = row.cells[6].textContent.trim();
+            if (date) {
+                dates.add(date);
+            }
+        });
+        
+        // Add options to created date filter
+        dates.forEach(date => {
+            const option = document.createElement('option');
+            option.value = date;
+            option.textContent = date;
+            createdFilter.appendChild(option);
+        });
+    });
+</script>
 {% endblock %}

@@ -218,10 +218,14 @@ def upload_csv():
                     link = get_case_insensitive_column(row, 'link')
                     priority = get_case_insensitive_column(row, 'priority')
                     assignee = get_case_insensitive_column(row, 'assign')
+                    state = get_case_insensitive_column(row, 'state')
                     
-                    # Set default priority if not provided
+                    # Set default values if not provided
                     if not priority:
                         priority = "Medium"
+                    
+                    if not state:
+                        state = "Ready"
                     
                     # Check if we have the required fields
                     if not ticket:
@@ -249,6 +253,7 @@ def upload_csv():
                             'link': link.strip() if link else '',
                             'priority': priority.strip(),
                             'assignee': assignee.strip() if assignee else '',
+                            'state': state.strip() if state else 'Ready',
                             'prompt': '',
                             'status': 'new',  # new, started, actioned, completed
                             'created_at': datetime.now().isoformat(),
