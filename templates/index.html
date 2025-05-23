@@ -6,11 +6,131 @@
 <style>
     .filter-row th {
         padding: 8px 4px;
+        position: relative;
     }
-    .filter-row select {
+    
+    .filter-dropdown {
+        position: relative;
         width: 100%;
-        padding: 4px;
-        font-size: 0.9rem;
+    }
+    
+    .filter-button {
+        width: 100%;
+        padding: 6px 30px 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        font-size: 0.875rem;
+        text-align: left;
+        position: relative;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .filter-button:hover {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .filter-button::after {
+        content: "▼";
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    
+    .filter-content {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        display: none;
+    }
+    
+    .filter-content.show {
+        display: block;
+    }
+    
+    .filter-search {
+        padding: 8px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .filter-search input {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        font-size: 0.875rem;
+    }
+    
+    .filter-options {
+        padding: 4px 0;
+    }
+    
+    .filter-option {
+        padding: 6px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        font-size: 0.875rem;
+    }
+    
+    .filter-option:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .filter-option input[type="checkbox"] {
+        margin-right: 8px;
+        cursor: pointer;
+    }
+    
+    .filter-option.select-all {
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 500;
+        background-color: #f8f9fa;
+    }
+    
+    .filter-button .filter-count {
+        color: #0d6efd;
+        font-weight: 500;
+    }
+    
+    .filter-button .filter-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+    }
+    
+    .auto-save-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1050;
+    }
+    
+    .auto-save-indicator.show {
+        opacity: 1;
     }
 </style>
 {% endblock %}
@@ -49,69 +169,136 @@
             </tr>
             <tr class="filter-row">
                 <th>
-                    <select class="column-filter" data-column="ticket">
-                        <option value="">All Tickets</option>
-                        {% set tickets = [] %}
-                        {% for task in tasks %}
-                            {% if task.ticket not in tickets %}
-                                {% set _ = tickets.append(task.ticket) %}
-                                <option value="{{ task.ticket }}">{{ task.ticket }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
+                    <div class="filter-dropdown" data-column="0">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
                 <th>
-                    <select class="column-filter" data-column="task">
-                        <option value="">All Tasks</option>
-                    </select>
+                    <div class="filter-dropdown" data-column="1">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
                 <th>
-                    <select class="column-filter" data-column="assignee">
-                        <option value="">All Assignees</option>
-                        {% set assignees = [] %}
-                        {% for task in tasks %}
-                            {% if task.assignee and task.assignee not in assignees %}
-                                {% set _ = assignees.append(task.assignee) %}
-                                <option value="{{ task.assignee }}">{{ task.assignee }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
+                    <div class="filter-dropdown" data-column="2">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
                 <th>
-                    <select class="column-filter" data-column="priority">
-                        <option value="">All Priorities</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
+                    <div class="filter-dropdown" data-column="3">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
                 <th>
-                    <select class="column-filter" data-column="state">
-                        <option value="">All States</option>
-                        {% set states = [] %}
-                        {% for task in tasks %}
-                            {% if task.state and task.state not in states %}
-                                {% set _ = states.append(task.state) %}
-                                <option value="{{ task.state }}">{{ task.state }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
+                    <div class="filter-dropdown" data-column="4">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
                 <th>
-                    <select class="column-filter" data-column="status">
-                        <option value="">All Statuses</option>
-                        <option value="new">New</option>
-                        <option value="started">Started</option>
-                        <option value="actioned">Actioned</option>
-                        <option value="completed">Completed</option>
-                    </select>
+                    <div class="filter-dropdown" data-column="5">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
                 <th>
-                    <select class="column-filter" data-column="created">
-                        <option value="">All Dates</option>
-                    </select>
+                    <div class="filter-dropdown" data-column="6">
+                        <button class="filter-button" type="button">
+                            <span class="filter-text">All items</span>
+                        </button>
+                        <div class="filter-content">
+                            <div class="filter-search">
+                                <input type="text" placeholder="Search..." class="filter-search-input">
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option select-all">
+                                    <input type="checkbox" class="select-all-checkbox" checked>
+                                    <span>Select All</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </th>
-                <th></th>
+                <th>
+                    <div class="btn-group btn-group-sm w-100">
+                        <button type="button" class="btn btn-outline-danger" id="resetFilters">Reset All</button>
+                    </div>
+                </th>
             </tr>
         </thead>
         <tbody>
@@ -172,6 +359,12 @@
         </tbody>
     </table>
 </div>
+
+<!-- Auto-save indicator -->
+<div id="autoSaveIndicator" class="auto-save-indicator">
+    Filters saved automatically
+</div>
+
 {% else %}
 <div class="alert alert-info" role="alert">
     No tasks found. Upload a CSV file to add tasks.
@@ -207,114 +400,322 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Get all filter dropdowns
-        const filters = document.querySelectorAll('.column-filter');
+        let filterStates = {};
+        let saveTimeout = null;
         
-        // Add event listeners to each filter
-        filters.forEach(filter => {
-            filter.addEventListener('change', function() {
-                applyFilters();
+        // Initialize filters
+        initializeFilters();
+        
+        function initializeFilters() {
+            // Populate filter options for each column
+            for (let i = 0; i < 7; i++) {
+                populateFilterOptions(i);
+            }
+            
+            // Set up event listeners
+            setupEventListeners();
+        }
+        
+        function populateFilterOptions(columnIndex) {
+            const dropdown = document.querySelector(`[data-column="${columnIndex}"]`);
+            if (!dropdown) return;
+            
+            const values = getUniqueColumnValues(columnIndex);
+            const optionsContainer = dropdown.querySelector('.filter-options');
+            
+            // Clear existing options (except select all)
+            const existingOptions = optionsContainer.querySelectorAll('.filter-option:not(.select-all)');
+            existingOptions.forEach(option => option.remove());
+            
+            // Add new options
+            values.forEach(value => {
+                const option = document.createElement('div');
+                option.className = 'filter-option';
+                option.setAttribute('data-value', value);
+                option.innerHTML = `
+                    <input type="checkbox" checked>
+                    <span>${value}</span>
+                `;
+                optionsContainer.appendChild(option);
             });
-        });
+            
+            // Initialize filter state
+            filterStates[columnIndex] = new Set(values);
+        }
         
-        // Function to apply all filters
-        function applyFilters() {
-            // Get all active filters
-            const activeFilters = {};
-            filters.forEach(filter => {
-                const column = filter.getAttribute('data-column');
-                const value = filter.value;
-                if (value) {
-                    activeFilters[column] = value;
+        function getUniqueColumnValues(columnIndex) {
+            const values = new Set();
+            const rows = document.querySelectorAll('#tasksTable tbody tr');
+            
+            rows.forEach(row => {
+                let cellValue = getCellValue(row, columnIndex);
+                if (cellValue && cellValue !== '-') {
+                    values.add(cellValue);
                 }
             });
             
-            // Get all rows
+            return Array.from(values).sort();
+        }
+        
+        function getCellValue(row, columnIndex) {
+            const cell = row.cells[columnIndex];
+            if (!cell) return '';
+            
+            // Special handling for status column (contains badges)
+            if (columnIndex === 5) {
+                const badge = cell.querySelector('.badge');
+                return badge ? badge.textContent.trim() : '';
+            }
+            
+            // Special handling for ticket column (might contain links)
+            if (columnIndex === 0) {
+                const link = cell.querySelector('a');
+                return link ? link.textContent.trim() : cell.textContent.trim();
+            }
+            
+            return cell.textContent.trim();
+        }
+        
+        function setupEventListeners() {
+            // Handle filter button clicks
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.filter-button')) {
+                    const dropdown = e.target.closest('.filter-dropdown');
+                    const content = dropdown.querySelector('.filter-content');
+                    
+                    // Close all other dropdowns
+                    document.querySelectorAll('.filter-content.show').forEach(el => {
+                        if (el !== content) {
+                            el.classList.remove('show');
+                        }
+                    });
+                    
+                    // Toggle current dropdown
+                    content.classList.toggle('show');
+                }
+                
+                // Close dropdowns when clicking outside
+                if (!e.target.closest('.filter-dropdown')) {
+                    document.querySelectorAll('.filter-content.show').forEach(el => {
+                        el.classList.remove('show');
+                    });
+                }
+            });
+            
+            // Handle checkbox changes - AUTO APPLY AND SAVE
+            document.addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox' && e.target.closest('.filter-dropdown')) {
+                    const dropdown = e.target.closest('.filter-dropdown');
+                    const columnIndex = parseInt(dropdown.getAttribute('data-column'));
+                    
+                    handleCheckboxChange(dropdown, columnIndex, e.target);
+                    
+                    // Auto-apply filters immediately
+                    applyFilters();
+                    
+                    // Auto-save with debouncing (500ms delay)
+                    if (saveTimeout) {
+                        clearTimeout(saveTimeout);
+                    }
+                    saveTimeout = setTimeout(() => {
+                        autoSaveFilters();
+                    }, 500);
+                }
+            });
+            
+            // Handle search input
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('filter-search-input')) {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const dropdown = e.target.closest('.filter-dropdown');
+                    const options = dropdown.querySelectorAll('.filter-option:not(.select-all)');
+                    
+                    options.forEach(option => {
+                        const text = option.querySelector('span').textContent.toLowerCase();
+                        option.style.display = text.includes(searchTerm) ? 'flex' : 'none';
+                    });
+                }
+            });
+            
+            // Reset filters button
+            document.getElementById('resetFilters').addEventListener('click', resetFilters);
+        }
+        
+        function handleCheckboxChange(dropdown, columnIndex, checkbox) {
+            const selectAllCheckbox = dropdown.querySelector('.select-all-checkbox');
+            const optionCheckboxes = dropdown.querySelectorAll('.filter-option:not(.select-all) input[type="checkbox"]');
+            
+            if (checkbox.classList.contains('select-all-checkbox')) {
+                // Select All checkbox changed
+                const isChecked = checkbox.checked;
+                optionCheckboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                
+                // Update filter state
+                if (isChecked) {
+                    filterStates[columnIndex] = new Set(getUniqueColumnValues(columnIndex));
+                } else {
+                    filterStates[columnIndex] = new Set();
+                }
+            } else {
+                // Individual option checkbox changed
+                const value = checkbox.closest('.filter-option').getAttribute('data-value');
+                
+                if (checkbox.checked) {
+                    filterStates[columnIndex].add(value);
+                } else {
+                    filterStates[columnIndex].delete(value);
+                }
+                
+                // Update select all checkbox state
+                const allValues = getUniqueColumnValues(columnIndex);
+                const checkedCount = filterStates[columnIndex].size;
+                
+                if (checkedCount === allValues.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else if (checkedCount === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
+            }
+            
+            updateFilterButtonText(dropdown, columnIndex);
+        }
+        
+        function updateFilterButtonText(dropdown, columnIndex) {
+            const button = dropdown.querySelector('.filter-button .filter-text');
+            const selectedCount = filterStates[columnIndex].size;
+            const totalCount = getUniqueColumnValues(columnIndex).length;
+            
+            if (selectedCount === totalCount) {
+                button.textContent = 'All items';
+            } else if (selectedCount === 0) {
+                button.textContent = 'None selected';
+            } else if (selectedCount === 1) {
+                const selectedValue = Array.from(filterStates[columnIndex])[0];
+                button.textContent = selectedValue;
+            } else {
+                button.innerHTML = `<span class="filter-count">${selectedCount}</span> items selected`;
+            }
+        }
+        
+        function applyFilters() {
             const rows = document.querySelectorAll('#tasksTable tbody tr');
             
-            // Loop through rows and check if they match all filters
             rows.forEach(row => {
                 let showRow = true;
                 
-                // Check each active filter
-                for (const column in activeFilters) {
-                    const value = activeFilters[column];
-                    let cellValue;
+                // Check each column filter
+                for (let columnIndex = 0; columnIndex < 7; columnIndex++) {
+                    if (!filterStates[columnIndex]) continue;
                     
-                    // Get the cell value based on the column
-                    switch (column) {
-                        case 'ticket':
-                            cellValue = row.cells[0].textContent.trim();
-                            break;
-                        case 'task':
-                            cellValue = row.cells[1].textContent.trim();
-                            break;
-                        case 'assignee':
-                            cellValue = row.cells[2].textContent.trim();
-                            break;
-                        case 'priority':
-                            cellValue = row.cells[3].textContent.trim();
-                            break;
-                        case 'state':
-                            cellValue = row.cells[4].textContent.trim();
-                            break;
-                        case 'status':
-                            // Extract status from the badge text
-                            const statusBadge = row.cells[5].querySelector('.badge');
-                            cellValue = statusBadge ? statusBadge.textContent.trim().toLowerCase() : '';
-                            break;
-                        case 'created':
-                            cellValue = row.cells[6].textContent.trim();
-                            break;
-                    }
+                    const cellValue = getCellValue(row, columnIndex);
                     
-                    // If the cell value doesn't match the filter, hide the row
-                    if (cellValue !== value && !(column === 'status' && cellValue.includes(value.toLowerCase()))) {
+                    // If this column has filters applied and the cell value is not in the allowed set
+                    if (filterStates[columnIndex].size > 0 && !filterStates[columnIndex].has(cellValue)) {
                         showRow = false;
                         break;
                     }
                 }
                 
-                // Show or hide the row
                 row.style.display = showRow ? '' : 'none';
             });
         }
         
-        // Populate task filter with unique task names
-        const taskFilter = document.querySelector('.column-filter[data-column="task"]');
-        const taskNames = new Set();
-        document.querySelectorAll('#tasksTable tbody tr').forEach(row => {
-            const taskName = row.cells[1].textContent.trim();
-            if (taskName) {
-                taskNames.add(taskName);
+        function autoSaveFilters() {
+            const filterSettings = {};
+            for (let columnIndex = 0; columnIndex < 7; columnIndex++) {
+                if (filterStates[columnIndex]) {
+                    filterSettings[columnIndex] = Array.from(filterStates[columnIndex]);
+                }
             }
-        });
+            localStorage.setItem('taskFilterSettings', JSON.stringify(filterSettings));
+            
+            // Show auto-save indicator
+            const indicator = document.getElementById('autoSaveIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
         
-        // Add options to task filter
-        taskNames.forEach(taskName => {
-            const option = document.createElement('option');
-            option.value = taskName;
-            option.textContent = taskName.length > 30 ? taskName.substring(0, 30) + '...' : taskName;
-            taskFilter.appendChild(option);
-        });
-        
-        // Populate created date filter with unique dates
-        const createdFilter = document.querySelector('.column-filter[data-column="created"]');
-        const dates = new Set();
-        document.querySelectorAll('#tasksTable tbody tr').forEach(row => {
-            const date = row.cells[6].textContent.trim();
-            if (date) {
-                dates.add(date);
+        function resetFilters() {
+            // Reset all filter states
+            for (let columnIndex = 0; columnIndex < 7; columnIndex++) {
+                filterStates[columnIndex] = new Set(getUniqueColumnValues(columnIndex));
+                
+                const dropdown = document.querySelector(`[data-column="${columnIndex}"]`);
+                if (dropdown) {
+                    // Check all checkboxes
+                    const selectAllCheckbox = dropdown.querySelector('.select-all-checkbox');
+                    const optionCheckboxes = dropdown.querySelectorAll('.filter-option:not(.select-all) input[type="checkbox"]');
+                    
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                    optionCheckboxes.forEach(cb => cb.checked = true);
+                    
+                    updateFilterButtonText(dropdown, columnIndex);
+                }
             }
-        });
+            
+            applyFilters();
+            autoSaveFilters();
+        }
         
-        // Add options to created date filter
-        dates.forEach(date => {
-            const option = document.createElement('option');
-            option.value = date;
-            option.textContent = date;
-            createdFilter.appendChild(option);
-        });
+        function loadFilters() {
+            const savedSettings = localStorage.getItem('taskFilterSettings');
+            if (savedSettings) {
+                const filterSettings = JSON.parse(savedSettings);
+                
+                for (let columnIndex = 0; columnIndex < 7; columnIndex++) {
+                    if (filterSettings[columnIndex]) {
+                        filterStates[columnIndex] = new Set(filterSettings[columnIndex]);
+                        
+                        const dropdown = document.querySelector(`[data-column="${columnIndex}"]`);
+                        if (dropdown) {
+                            const selectAllCheckbox = dropdown.querySelector('.select-all-checkbox');
+                            const optionCheckboxes = dropdown.querySelectorAll('.filter-option:not(.select-all) input[type="checkbox"]');
+                            
+                            // Uncheck all first
+                            optionCheckboxes.forEach(cb => cb.checked = false);
+                            
+                            // Check saved values
+                            filterSettings[columnIndex].forEach(value => {
+                                const option = dropdown.querySelector(`[data-value="${value}"] input[type="checkbox"]`);
+                                if (option) option.checked = true;
+                            });
+                            
+                            // Update select all checkbox
+                            const allValues = getUniqueColumnValues(columnIndex);
+                            const checkedCount = filterSettings[columnIndex].length;
+                            
+                            if (checkedCount === allValues.length) {
+                                selectAllCheckbox.checked = true;
+                                selectAllCheckbox.indeterminate = false;
+                            } else if (checkedCount === 0) {
+                                selectAllCheckbox.checked = false;
+                                selectAllCheckbox.indeterminate = false;
+                            } else {
+                                selectAllCheckbox.checked = false;
+                                selectAllCheckbox.indeterminate = true;
+                            }
+                            
+                            updateFilterButtonText(dropdown, columnIndex);
+                        }
+                    }
+                }
+                
+                applyFilters();
+            }
+        }
+        
+        // Load saved filters after initialization
+        setTimeout(loadFilters, 100);
     });
 </script>
 {% endblock %}

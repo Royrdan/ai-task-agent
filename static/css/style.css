@@ -53,6 +53,119 @@ textarea.form-control {
     font-family: monospace;
 }
 
+/* Filter styling */
+.filter-row th {
+    padding: 8px 4px;
+}
+
+/* Select2 dropdown styling */
+.select2-container--default .select2-selection--multiple {
+    border-color: #ced4da;
+    padding: 4px;
+}
+
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Style for the dropdown button */
+.select2-selection__arrow {
+    height: 26px !important;
+    position: absolute !important;
+    top: 4px !important;
+    right: 1px !important;
+    width: 20px !important;
+}
+
+/* Style for the dropdown options */
+.select-option {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+}
+
+.select-checkbox {
+    margin-right: 8px;
+}
+
+.option-text {
+    margin-left: 5px;
+}
+
+/* Style for the "Select All" option */
+.select-all {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.select-all-checkbox {
+    margin-right: 8px;
+}
+
+.select-all:hover {
+    background-color: #e9ecef;
+}
+
+/* Style for the dropdown container */
+.select2-dropdown {
+    border-color: #ced4da;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Style for the dropdown items */
+.select2-results__option {
+    padding: 6px 12px;
+    user-select: none;
+}
+
+.select2-results__option--highlighted {
+    background-color: #f8f9fa !important;
+    color: #212529 !important;
+}
+
+/* Style for the selected items display */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    color: #212529;
+    padding: 2px 8px;
+    margin-top: 4px;
+    margin-right: 5px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #6c757d;
+    margin-right: 5px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #212529;
+}
+
+/* Style for the search box */
+.select2-search__field {
+    border-color: #ced4da !important;
+    padding: 4px 8px !important;
+}
+
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    border: 1px solid #ced4da;
+}
+
+.select2-container--default .select2-search--inline .select2-search__field {
+    background: transparent;
+    border: none;
+    outline: 0;
+    box-shadow: none;
+    -webkit-appearance: textfield;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .card-body {
@@ -61,5 +174,13 @@ textarea.form-control {
     
     .claude-output, .git-diff {
         max-height: 300px;
+    }
+    
+    .filter-row th {
+        padding: 4px 2px;
+    }
+    
+    .select2-container {
+        width: 100% !important;
     }
 }
