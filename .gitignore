@@ -32,6 +32,7 @@ instance/
 # Application specific
 workspaces/
 static/uploads/
+outputs/
 test_tasks.csv
 
 # IDE

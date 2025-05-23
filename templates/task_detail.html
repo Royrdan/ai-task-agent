@@ -32,6 +32,7 @@
     <div class="col">
         <h1>Task Details</h1>
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Tasks</a>
+        <a href="{{ url_for('task_detail_streaming', task_id=task.id) }}" class="btn btn-outline-info">Live Streaming View</a>
     </div>
 </div>
 

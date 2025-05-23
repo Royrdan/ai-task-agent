@@ -4,8 +4,10 @@ import csv
 import uuid
 import subprocess
 import shutil
+import threading
+import time
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, stream_template
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -17,10 +19,11 @@ TASKS_DIR = 'tasks'
 TASKS_FILE = os.path.join(TASKS_DIR, 'tasks.json')
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 WORKSPACES_DIR = 'workspaces'
+OUTPUTS_DIR = 'outputs'
 ALLOWED_EXTENSIONS = {'csv'}
 
 # Ensure directories exist
-for directory in [TASKS_DIR, UPLOAD_FOLDER, WORKSPACES_DIR]:
+for directory in [TASKS_DIR, UPLOAD_FOLDER, WORKSPACES_DIR, OUTPUTS_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 # Initialize config if it doesn't exist
@@ -81,6 +84,125 @@ def run_claude_command(prompt, mode, workspace_dir):
         return result.stdout
     except subprocess.CalledProcessError as e:
         return f"Error running Claude: {e.stderr}"
+
+def run_claude_command_streaming(prompt, workspace_dir, output_file_path):
+    """
+    Run Claude CLI command in print mode with streaming output to a file.
+    Uses the claude -p command with --output-format stream-json for live updates.
+    """
+    # Escape quotes in the prompt to prevent shell injection
+    escaped_prompt = prompt.replace('"', '\\"')
+    
+    # Use claude -p with streaming JSON output - Linux compatible
+    cmd = f'claude -p "{escaped_prompt}" --output-format stream-json'
+    
+    try:
+        # Ensure the output directory exists
+        os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+        
+        print(f"DEBUG: Starting Claude command: {cmd}")
+        print(f"DEBUG: Output file path: {output_file_path}")
+        print(f"DEBUG: Working directory: {workspace_dir}")
+        
+        # Open the output file for writing and run the command with stdout redirected to it
+        output_file = open(output_file_path, 'w')
+        process = subprocess.Popen(cmd, shell=True, cwd=workspace_dir,
+                                 stdout=output_file, stderr=subprocess.PIPE, text=True)
+        
+        # Store the file handle with the process so we can close it later
+        process.output_file = output_file
+        
+        print(f"DEBUG: Claude process started with PID: {process.pid}")
+        
+        # Start a thread to monitor the process and close the file when done
+        threading.Thread(target=monitor_process, args=(process, output_file), daemon=True).start()
+        
+        # For debugging, also create a test output file with sample data
+        test_output_path = output_file_path.replace('.jsonl', '_test.jsonl')
+        threading.Thread(target=create_test_output, args=(test_output_path,), daemon=True).start()
+        
+        return process
+    except Exception as e:
+        print(f"DEBUG: Error in run_claude_command_streaming: {e}")
+        return None
+
+def monitor_process(process, output_file):
+    """Monitor a process and close the output file when it completes"""
+    try:
+        # Wait for the process to complete
+        process.wait()
+        print(f"DEBUG: Process {process.pid} completed with return code {process.returncode}")
+        
+        # Close the output file
+        if output_file and not output_file.closed:
+            output_file.close()
+            print(f"DEBUG: Output file closed for process {process.pid}")
+            
+        # Check for any stderr output
+        if process.stderr:
+            stderr_output = process.stderr.read()
+            if stderr_output:
+                print(f"DEBUG: Process stderr: {stderr_output}")
+                
+    except Exception as e:
+        print(f"DEBUG: Error monitoring process: {e}")
+        if output_file and not output_file.closed:
+            output_file.close()
+
+def create_test_output(output_file_path):
+    """Create test output for debugging streaming functionality"""
+    import time
+    import json
+    
+    test_messages = [
+        {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hello! "}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "This is "}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "a test "}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "streaming "}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "response "}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "from Claude.\n"}},
+        {"type": "content_block_stop", "index": 0}
+    ]
+    
+    try:
+        with open(output_file_path, 'w') as f:
+            for i, message in enumerate(test_messages):
+                f.write(json.dumps(message) + '\n')
+                f.flush()
+                time.sleep(1)  # Simulate streaming delay
+        print(f"DEBUG: Test output file created at {output_file_path}")
+    except Exception as e:
+        print(f"DEBUG: Error creating test output: {e}")
+
+def get_output_file_path(task_id):
+    """Get the path for the Claude output file for a specific task"""
+    # Store output files in a separate directory to avoid committing them with code changes
+    output_dir = os.path.join('outputs', task_id)
+    os.makedirs(output_dir, exist_ok=True)
+    return os.path.join(output_dir, 'claude_output.jsonl')
+
+def read_streaming_output(output_file_path):
+    """Generator function to read streaming output from Claude"""
+    if not os.path.exists(output_file_path):
+        return
+    
+    with open(output_file_path, 'r') as f:
+        # Start from the beginning of the file
+        f.seek(0)
+        while True:
+            line = f.readline()
+            if line:
+                try:
+                    # Parse JSON line
+                    data = json.loads(line.strip())
+                    yield data
+                except json.JSONDecodeError:
+                    # Skip invalid JSON lines
+                    continue
+            else:
+                # No new data, wait a bit
+                time.sleep(0.1)
 
 def get_git_diff(workspace_dir):
     """Get git diff for the workspace"""
@@ -308,6 +430,17 @@ def task_detail(task_id):
     
     return render_template('task_detail.html', task=task)
 
+@app.route('/task/<task_id>/streaming', methods=['GET'])
+def task_detail_streaming(task_id):
+    tasks = load_tasks()
+    task = next((t for t in tasks if t['id'] == task_id), None)
+    
+    if not task:
+        flash('Task not found', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('task_detail_streaming.html', task=task)
+
 @app.route('/task/<task_id>/update_prompt', methods=['POST'])
 def update_prompt(task_id):
     tasks = load_tasks()
@@ -480,6 +613,165 @@ def delete_task(task_id):
     
     flash('Task deleted successfully', 'success')
     return redirect(url_for('index'))
+
+@app.route('/task/<task_id>/start_streaming', methods=['POST'])
+def start_task_streaming(task_id):
+    """Start a task with live streaming output"""
+    config = load_config()
+    if not config['github_repo']:
+        return jsonify({'error': 'GitHub repository not configured'}), 400
+    
+    tasks = load_tasks()
+    task_index = next((i for i, t in enumerate(tasks) if t['id'] == task_id), None)
+    
+    if task_index is None:
+        return jsonify({'error': 'Task not found'}), 404
+    
+    task = tasks[task_index]
+    
+    if not task['prompt']:
+        return jsonify({'error': 'Please add a prompt before starting the task'}), 400
+    
+    # Create workspace directory
+    workspace_dir = os.path.join(WORKSPACES_DIR, task_id)
+    if os.path.exists(workspace_dir):
+        shutil.rmtree(workspace_dir)
+    os.makedirs(workspace_dir)
+    
+    # Clone repository
+    try:
+        subprocess.run(f'git clone {config["github_repo"]} .', shell=True, check=True, cwd=workspace_dir)
+    except subprocess.CalledProcessError as e:
+        return jsonify({'error': f'Error cloning repository: {e}'}), 500
+    
+    # Get output file path
+    output_file_path = get_output_file_path(task_id)
+    
+    # Start Claude streaming process
+    process = run_claude_command_streaming(task['prompt'], workspace_dir, output_file_path)
+    
+    if process is None:
+        return jsonify({'error': 'Failed to start Claude process'}), 500
+    
+    # Update task status
+    tasks[task_index]['status'] = 'streaming'
+    tasks[task_index]['workspace_dir'] = workspace_dir
+    save_tasks(tasks)
+    
+    return jsonify({'success': True, 'message': 'Task started with streaming output'})
+
+@app.route('/task/<task_id>/action_streaming', methods=['POST'])
+def action_task_streaming(task_id):
+    """Run action mode with live streaming output"""
+    tasks = load_tasks()
+    task_index = next((i for i, t in enumerate(tasks) if t['id'] == task_id), None)
+    
+    if task_index is None:
+        return jsonify({'error': 'Task not found'}), 404
+    
+    task = tasks[task_index]
+    
+    if task['status'] not in ['started', 'streaming']:
+        return jsonify({'error': 'Task must be started before it can be actioned'}), 400
+    
+    # Get output file path
+    output_file_path = get_output_file_path(task_id)
+    
+    # Start Claude streaming process for action mode
+    process = run_claude_command_streaming(task['prompt'], task['workspace_dir'], output_file_path)
+    
+    if process is None:
+        return jsonify({'error': 'Failed to start Claude process'}), 500
+    
+    # Update task status
+    tasks[task_index]['status'] = 'actioning'
+    save_tasks(tasks)
+    
+    return jsonify({'success': True, 'message': 'Action started with streaming output'})
+
+@app.route('/task/<task_id>/stream')
+def stream_task_output(task_id):
+    """Stream live output from Claude for a specific task"""
+    def generate():
+        output_file_path = get_output_file_path(task_id)
+        
+        # Wait for file to be created
+        timeout = 30  # 30 seconds timeout
+        start_time = time.time()
+        while not os.path.exists(output_file_path) and (time.time() - start_time) < timeout:
+            time.sleep(0.1)
+        
+        if not os.path.exists(output_file_path):
+            yield f"data: {json.dumps({'error': 'Output file not found'})}\n\n"
+            return
+        
+        # Stream the output
+        last_position = 0
+        with open(output_file_path, 'r') as f:
+            f.seek(0)  # Start from beginning of file
+            while True:
+                f.seek(last_position)
+                lines = f.readlines()
+                
+                if lines:
+                    for line in lines:
+                        if line.strip():
+                            try:
+                                # Parse JSON line and send as SSE
+                                data = json.loads(line.strip())
+                                yield f"data: {json.dumps(data)}\n\n"
+                            except json.JSONDecodeError:
+                                # If not JSON, send as plain text
+                                yield f"data: {json.dumps({'text': line})}\n\n"
+                    
+                    last_position = f.tell()
+                else:
+                    # No new data, wait a bit
+                    time.sleep(0.1)
+                    
+                    # Check if process is still running
+                    tasks = load_tasks()
+                    task = next((t for t in tasks if t['id'] == task_id), None)
+                    if task and task['status'] not in ['streaming', 'actioning']:
+                        break
+    
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/task/<task_id>/complete_streaming', methods=['POST'])
+def complete_streaming_task(task_id):
+    """Mark a streaming task as completed and get final output"""
+    tasks = load_tasks()
+    task_index = next((i for i, t in enumerate(tasks) if t['id'] == task_id), None)
+    
+    if task_index is None:
+        return jsonify({'error': 'Task not found'}), 404
+    
+    task = tasks[task_index]
+    output_file_path = get_output_file_path(task_id)
+    
+    # Read final output from file
+    final_output = ""
+    if os.path.exists(output_file_path):
+        with open(output_file_path, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                try:
+                    data = json.loads(line.strip())
+                    if 'content' in data:
+                        final_output += data['content']
+                except json.JSONDecodeError:
+                    continue
+    
+    # Get git diff
+    git_diff = get_git_diff(task['workspace_dir'])
+    
+    # Update task
+    tasks[task_index]['status'] = 'actioned'
+    tasks[task_index]['claude_output'] = final_output
+    tasks[task_index]['git_diff'] = git_diff
+    save_tasks(tasks)
+    
+    return jsonify({'success': True, 'output': final_output, 'git_diff': git_diff})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=9000)
