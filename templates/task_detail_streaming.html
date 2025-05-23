@@ -338,14 +338,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Handle different types of streaming data based on Claude CLI output format
-                if (data.type === 'content_block_delta' && data.delta && data.delta.text) {
+                if (data.type === 'message' && data.content) {
+                    // Handle Claude CLI message format
+                    for (const contentItem of data.content) {
+                        if (contentItem.type === 'text' && contentItem.text) {
+                            outputElement.textContent += contentItem.text + '\n';
+                        }
+                    }
+                } else if (data.type === 'content_block_delta' && data.delta && data.delta.text) {
                     // Claude streaming format
                     outputElement.textContent += data.delta.text;
                 } else if (data.type === 'content_block_start') {
                     outputElement.textContent += '[Starting response...]\n';
                 } else if (data.type === 'content_block_stop') {
                     outputElement.textContent += '\n[Response complete]\n';
-                } else if (data.content) {
+                } else if (data.result) {
+                    // Handle system messages with result
+                    outputElement.textContent += data.result + '\n';
+                } else if (data.content && typeof data.content === 'string') {
                     // Fallback for other content formats
                     outputElement.textContent += data.content;
                 } else if (data.text) {

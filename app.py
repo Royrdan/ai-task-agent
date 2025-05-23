@@ -757,8 +757,29 @@ def complete_streaming_task(task_id):
             for line in lines:
                 try:
                     data = json.loads(line.strip())
-                    if 'content' in data:
+                    
+                    # Handle Claude CLI message format
+                    if data.get('type') == 'message' and 'content' in data:
+                        # Extract text from content array
+                        for content_item in data['content']:
+                            if content_item.get('type') == 'text' and 'text' in content_item:
+                                final_output += content_item['text'] + '\n'
+                    
+                    # Handle streaming delta format (if used)
+                    elif data.get('type') == 'content_block_delta' and 'delta' in data:
+                        if 'text' in data['delta']:
+                            final_output += data['delta']['text']
+                    
+                    # Handle system messages with result
+                    elif 'result' in data:
+                        final_output += data['result'] + '\n'
+                    
+                    # Fallback for other formats
+                    elif 'content' in data and isinstance(data['content'], str):
                         final_output += data['content']
+                    elif 'text' in data:
+                        final_output += data['text']
+                        
                 except json.JSONDecodeError:
                     continue
     
