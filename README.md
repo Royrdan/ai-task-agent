@@ -98,9 +98,9 @@ The application will be available at `http://localhost:9000`
 
 ### Live Streaming Workflow
 
-1. **Access Streaming View**: Click "Live" button or "Live Streaming View" link
-2. **Start Streaming**: Click "START (Live Streaming)" to begin
-3. **Watch Real-time Output**: Monitor Claude's responses as they appear
+1. **Start Task**: Click "START" button (automatically redirects to live streaming view)
+2. **Begin Streaming**: Click "START (Live Streaming)" to begin execution
+3. **Watch Real-time Output**: Monitor Claude's responses as they appear in real-time
 4. **Action Mode**: Click "ACTION (Live Streaming)" to execute the task
 5. **Complete**: Click "COMPLETE & FINALIZE" to finish and get git diff
 

@@ -20,9 +20,49 @@
         padding: 15px;
         margin-top: 15px;
         white-space: pre-wrap;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.4;
     }
     .status-badge {
         font-size: 1rem;
+    }
+    .streaming-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        background-color: #28a745;
+        border-radius: 50%;
+        margin-left: 8px;
+        animation: pulse 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes pulse {
+        from { opacity: 1; }
+        to { opacity: 0.3; }
+    }
+    .streaming-status {
+        background-color: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    .output-container {
+        position: relative;
+    }
+    .auto-scroll-toggle {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+    }
+    .error-message {
+        color: #dc3545;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 5px;
+        padding: 10px;
+        margin-top: 10px;
     }
 </style>
 {% endblock %}
@@ -32,7 +72,6 @@
     <div class="col">
         <h1>Task Details</h1>
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Tasks</a>
-        <a href="{{ url_for('task_detail_streaming', task_id=task.id) }}" class="btn btn-outline-info">Live Streaming View</a>
     </div>
 </div>
 
@@ -41,8 +80,11 @@
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h3 class="mb-0">{{ task.ticket }} - {{ task.task }}</h3>
-                <span class="status-badge badge {% if task.status == 'new' %}bg-secondary{% elif task.status == 'started' %}bg-primary{% elif task.status == 'actioned' %}bg-info{% elif task.status == 'completed' %}bg-success{% endif %}">
+                <span class="status-badge badge {% if task.status == 'new' %}bg-secondary{% elif task.status == 'started' %}bg-primary{% elif task.status == 'streaming' %}bg-info{% elif task.status == 'actioning' %}bg-warning{% elif task.status == 'actioned' %}bg-info{% elif task.status == 'completed' %}bg-success{% endif %}">
                     {{ task.status|capitalize }}
+                    {% if task.status in ['streaming', 'actioning'] %}
+                    <span class="streaming-indicator"></span>
+                    {% endif %}
                 </span>
             </div>
             <div class="card-body">
@@ -100,16 +142,23 @@
                     </div>
                 </div>
                 
+                {% if task.status in ['streaming', 'actioning'] %}
+                <div class="streaming-status">
+                    <strong>🔴 Live Streaming Active</strong>
+                    <p class="mb-0">Claude is currently processing your request. Output will appear below in real-time.</p>
+                </div>
+                {% endif %}
+                
                 <div class="row mb-3">
                     <div class="col-md-12 d-flex justify-content-between">
                         {% if task.status == 'new' and task.prompt %}
                         <form action="{{ url_for('start_task', task_id=task.id) }}" method="post">
                             <button type="submit" class="btn btn-primary">START</button>
                         </form>
-                        {% elif task.status == 'started' %}
-                        <form action="{{ url_for('action_task', task_id=task.id) }}" method="post">
-                            <button type="submit" class="btn btn-info">ACTION</button>
-                        </form>
+                        {% elif task.status in ['streaming'] %}
+                        <button id="actionBtn" class="btn btn-info">ACTION</button>
+                        {% elif task.status == 'actioning' %}
+                        <button id="completeBtn" class="btn btn-success">COMPLETE</button>
                         {% elif task.status == 'actioned' %}
                         <form action="{{ url_for('push_changes', task_id=task.id) }}" method="post">
                             <button type="submit" class="btn btn-success">PUSH CHANGES</button>
@@ -118,20 +167,32 @@
                     </div>
                 </div>
                 
-                {% if task.claude_output %}
                 <div class="row mb-3">
                     <div class="col-md-12">
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h4>Claude Output</h4>
+                                {% if task.status in ['streaming', 'actioning'] %}
+                                <div class="auto-scroll-toggle">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="autoScrollToggle" checked>
+                                        <label class="form-check-label" for="autoScrollToggle">Auto-scroll</label>
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="card-body p-0">
-                                <div class="claude-output">{{ task.claude_output }}</div>
+                                <div class="output-container">
+                                    <div id="claudeOutput" class="claude-output">
+                                        {% if task.claude_output %}{{ task.claude_output }}{% else %}{% if task.status in ['streaming', 'actioning'] %}Waiting for Claude output...{% else %}No output yet{% endif %}{% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                {% endif %}
+                
+                <div id="errorContainer"></div>
                 
                 {% if task.status == 'actioned' %}
                 <div class="row mb-3">
@@ -173,4 +234,180 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const taskId = '{{ task.id }}';
+    const outputElement = document.getElementById('claudeOutput');
+    const autoScrollToggle = document.getElementById('autoScrollToggle');
+    const errorContainer = document.getElementById('errorContainer');
+    
+    let eventSource = null;
+    let isStreaming = false;
+    
+    // Check if task is currently streaming
+    const taskStatus = '{{ task.status }}';
+    if (taskStatus === 'streaming' || taskStatus === 'actioning') {
+        startStreaming();
+    }
+    
+    // Button event listeners
+    const actionBtn = document.getElementById('actionBtn');
+    if (actionBtn) {
+        actionBtn.addEventListener('click', function() {
+            actionTask();
+        });
+    }
+    
+    const completeBtn = document.getElementById('completeBtn');
+    if (completeBtn) {
+        completeBtn.addEventListener('click', function() {
+            completeTask();
+        });
+    }
+    
+    function actionTask() {
+        fetch(`/task/${taskId}/action_streaming`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                outputElement.textContent += '\n--- ACTION MODE ---\n';
+                startStreaming();
+                // Reload page to update UI
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showError(data.error || 'Failed to start action');
+            }
+        })
+        .catch(error => {
+            showError('Network error: ' + error.message);
+        });
+    }
+    
+    function completeTask() {
+        if (eventSource) {
+            eventSource.close();
+            isStreaming = false;
+        }
+        
+        fetch(`/task/${taskId}/complete_streaming`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                outputElement.textContent = data.output;
+                // Reload page to update UI and show git diff
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showError(data.error || 'Failed to complete task');
+            }
+        })
+        .catch(error => {
+            showError('Network error: ' + error.message);
+        });
+    }
+    
+    function startStreaming() {
+        if (isStreaming) return;
+        
+        isStreaming = true;
+        
+        eventSource = new EventSource(`/task/${taskId}/stream`);
+        
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Received streaming data:', data);
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                // Handle different types of streaming data based on Claude CLI output format
+                if (data.type === 'message' && data.content) {
+                    // Handle Claude CLI message format
+                    for (const contentItem of data.content) {
+                        if (contentItem.type === 'text' && contentItem.text) {
+                            outputElement.textContent += contentItem.text + '\n';
+                        }
+                    }
+                } else if (data.type === 'content_block_delta' && data.delta && data.delta.text) {
+                    // Claude streaming format
+                    outputElement.textContent += data.delta.text;
+                } else if (data.type === 'content_block_start') {
+                    outputElement.textContent += '[Starting response...]\n';
+                } else if (data.type === 'content_block_stop') {
+                    outputElement.textContent += '\n[Response complete]\n';
+                } else if (data.result) {
+                    // Handle system messages with result
+                    outputElement.textContent += data.result + '\n';
+                } else if (data.content && typeof data.content === 'string') {
+                    // Fallback for other content formats
+                    outputElement.textContent += data.content;
+                } else if (data.text) {
+                    outputElement.textContent += data.text;
+                } else if (data.message) {
+                    outputElement.textContent += data.message;
+                }
+                
+                // Auto-scroll if enabled
+                if (autoScrollToggle && autoScrollToggle.checked) {
+                    outputElement.scrollTop = outputElement.scrollHeight;
+                }
+                
+            } catch (e) {
+                console.error('Error parsing streaming data:', e);
+                outputElement.textContent += `[ERROR] Failed to parse data: ${e.message}\n`;
+            }
+        };
+        
+        eventSource.onerror = function(event) {
+            console.error('EventSource failed:', event);
+            isStreaming = false;
+            
+            // Try to reconnect after a delay
+            setTimeout(() => {
+                if (!isStreaming && (taskStatus === 'streaming' || taskStatus === 'actioning')) {
+                    startStreaming();
+                }
+            }, 5000);
+        };
+        
+        eventSource.onopen = function(event) {
+            console.log('EventSource connection opened');
+        };
+    }
+    
+    function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        errorContainer.appendChild(errorDiv);
+        
+        // Remove error after 10 seconds
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 10000);
+    }
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (eventSource) {
+            eventSource.close();
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -117,9 +117,6 @@ def run_claude_command_streaming(prompt, workspace_dir, output_file_path):
         # Start a thread to monitor the process and close the file when done
         threading.Thread(target=monitor_process, args=(process, output_file), daemon=True).start()
         
-        # For debugging, also create a test output file with sample data
-        test_output_path = output_file_path.replace('.jsonl', '_test.jsonl')
-        threading.Thread(target=create_test_output, args=(test_output_path,), daemon=True).start()
         
         return process
     except Exception as e:
@@ -149,31 +146,6 @@ def monitor_process(process, output_file):
         if output_file and not output_file.closed:
             output_file.close()
 
-def create_test_output(output_file_path):
-    """Create test output for debugging streaming functionality"""
-    import time
-    import json
-    
-    test_messages = [
-        {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hello! "}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "This is "}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "a test "}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "streaming "}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "response "}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "from Claude.\n"}},
-        {"type": "content_block_stop", "index": 0}
-    ]
-    
-    try:
-        with open(output_file_path, 'w') as f:
-            for i, message in enumerate(test_messages):
-                f.write(json.dumps(message) + '\n')
-                f.flush()
-                time.sleep(1)  # Simulate streaming delay
-        print(f"DEBUG: Test output file created at {output_file_path}")
-    except Exception as e:
-        print(f"DEBUG: Error creating test output: {e}")
 
 def get_output_file_path(task_id):
     """Get the path for the Claude output file for a specific task"""
@@ -457,6 +429,7 @@ def update_prompt(task_id):
 
 @app.route('/task/<task_id>/start', methods=['POST'])
 def start_task(task_id):
+    """Start a task with live streaming output"""
     config = load_config()
     if not config['github_repo']:
         flash('GitHub repository not configured', 'error')
@@ -488,12 +461,18 @@ def start_task(task_id):
         flash(f'Error cloning repository: {e}', 'error')
         return redirect(url_for('task_detail', task_id=task_id))
     
-    # Run Claude in plan mode
-    claude_output = run_claude_command(task['prompt'], 'plan', workspace_dir)
+    # Get output file path
+    output_file_path = get_output_file_path(task_id)
     
-    # Update task
-    tasks[task_index]['status'] = 'started'
-    tasks[task_index]['claude_output'] = claude_output
+    # Start Claude streaming process
+    process = run_claude_command_streaming(task['prompt'], workspace_dir, output_file_path)
+    
+    if process is None:
+        flash('Failed to start Claude process', 'error')
+        return redirect(url_for('task_detail', task_id=task_id))
+    
+    # Update task status
+    tasks[task_index]['status'] = 'streaming'
     tasks[task_index]['workspace_dir'] = workspace_dir
     save_tasks(tasks)
     
