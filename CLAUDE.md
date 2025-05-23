@@ -2,6 +2,7 @@
 
 ## Project Overview
 
+This project is not run on the system it is developed on so dont attempt to run it locally in the command line. It is run on a linux system.
 This is a Flask-based task management system that integrates with Claude CLI to provide live streaming output for AI-powered task execution. The application allows users to upload tasks via CSV, manage them through a web interface, and execute them using Claude's command-line interface with real-time output streaming.
 
 ## Key Features Implemented
