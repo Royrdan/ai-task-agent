@@ -41,6 +41,19 @@
                             Add assignees who can be assigned tasks from CSV uploads. Only tasks assigned to these names will be imported.
                         </div>
                     </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="skipPermissions" name="skip_permissions" {% if config.skip_permissions %}checked{% endif %}>
+                            <label class="form-check-label" for="skipPermissions">
+                                Skip Permission Prompts (--dangerously-skip-permissions)
+                            </label>
+                            <div class="form-text text-warning">
+                                <strong>Warning:</strong> This will automatically skip all permission prompts in Claude CLI commands. Use with caution as this may allow potentially dangerous operations to proceed without confirmation.
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button type="submit" class="btn btn-primary">Save Configuration</button>
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
                     
